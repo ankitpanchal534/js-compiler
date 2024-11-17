@@ -1,368 +1,37 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Code2,
-  Copy,
-  Download,
-  Maximize2,
-  Minimize2,
-  Palette,
-  Play,
-  Settings2,
-  Terminal,
-  Timer,
-  Trash2,
-} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import MonacoEditor from "react-monaco-editor";
+import { Console } from "./components/layout/Console";
+import { Header } from "./components/layout/Header";
+import { colorPalettes } from "./theme";
 
-// interface ColorPalette {
-//   name: string;
-//   dark: {
-//     bg: string;
-//     text: string;
-//     editor: string;
-//     accent: string;
-//   };
-//   light: {
-//     bg: string;
-//     text: string;
-//     editor: string;
-//     accent: string;
-//   };
-// }
+import * as monaco from "monaco-editor";
+import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
+import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
+import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
+import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 
-// interface ColorPalettes {
-//   [key: string]: ColorPalette;
-// }
-
-// Color palette options
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const colorPalettes: any = {
-  default: {
-    name: "Default",
-    dark: {
-      bg: "from-gray-900 to-black",
-      text: "text-white",
-      editor: "bg-black/30",
-      accent: "purple",
-    },
-    light: {
-      bg: "from-gray-100 to-white",
-      text: "text-black",
-      editor: "bg-white/30",
-      accent: "purple",
-    },
-  },
-  ocean: {
-    name: "Ocean",
-    dark: {
-      bg: "from-blue-900 to-slate-900",
-      text: "text-blue-50",
-      editor: "bg-blue-950/30",
-      accent: "blue",
-    },
-    light: {
-      bg: "from-blue-50 to-white",
-      text: "text-blue-900",
-      editor: "bg-blue-50/30",
-      accent: "blue",
-    },
-  },
-  forest: {
-    name: "Forest",
-    dark: {
-      bg: "from-green-900 to-emerald-950",
-      text: "text-emerald-50",
-      editor: "bg-green-950/30",
-      accent: "emerald",
-    },
-    light: {
-      bg: "from-green-50 to-white",
-      text: "text-emerald-900",
-      editor: "bg-green-50/30",
-      accent: "emerald",
-    },
-  },
-  sunset: {
-    name: "Sunset",
-    dark: {
-      bg: "from-orange-900 to-red-950",
-      text: "text-orange-50",
-      editor: "bg-orange-950/30",
-      accent: "orange",
-    },
-    light: {
-      bg: "from-orange-50 to-white",
-      text: "text-orange-900",
-      editor: "bg-orange-50/30",
-      accent: "orange",
-    },
-  },
-  lavender: {
-    name: "Lavender",
-    dark: {
-      bg: "from-purple-900 to-indigo-950",
-      text: "text-purple-50",
-      editor: "bg-purple-950/30",
-      accent: "purple",
-    },
-    light: {
-      bg: "from-purple-50 to-white",
-      text: "text-purple-900",
-      editor: "bg-purple-50/30",
-      accent: "purple",
-    },
+self.MonacoEnvironment = {
+  getWorker(_: any, label: string) {
+    if (label === "json") {
+      return new jsonWorker();
+    }
+    if (label === "css" || label === "scss" || label === "less") {
+      return new cssWorker();
+    }
+    if (label === "html" || label === "handlebars" || label === "razor") {
+      return new htmlWorker();
+    }
+    if (label === "typescript" || label === "javascript") {
+      return new tsWorker();
+    }
+    return new editorWorker();
   },
 };
 
-interface HeaderProps {
-  theme: string;
-  onThemeChange: () => void;
-  onCopy: () => void;
-  onDownload: () => void;
-  autoRun: boolean;
-  onAutoRunChange: (checked: boolean) => void;
-  interval: number;
-  onIntervalChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onExecute: () => void;
-  isExecuting: boolean;
-  colorPalette: string;
-}
-
-// Header Component
-const Header: React.FC<HeaderProps> = ({
-  theme,
-  onThemeChange,
-  onCopy,
-  onDownload,
-  autoRun,
-  onAutoRunChange,
-  interval,
-  onIntervalChange,
-  onExecute,
-  isExecuting,
-  colorPalette,
-}) => (
-  <div
-    className={`flex items-center justify-between p-2 ${
-      theme === "dark" ? "bg-black/50" : "bg-white/50"
-    }`}
-  >
-    <div className="flex items-center gap-2">
-      <Code2
-        className={`w-5 h-5 text-${colorPalettes[colorPalette][theme].accent}-400`}
-      />
-      <span className="font-semibold">Code Editor</span>
-    </div>
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-1">
-        <Button onClick={onThemeChange} size="sm" variant="ghost">
-          <Settings2 className="w-4 h-4" />
-        </Button>
-        <Button onClick={onCopy} size="sm" variant="ghost" title="Copy code">
-          <Copy className="w-4 h-4" />
-        </Button>
-        <Button
-          onClick={onDownload}
-          size="sm"
-          variant="ghost"
-          title="Download code"
-        >
-          <Download className="w-4 h-4" />
-        </Button>
-        <Switch
-          checked={autoRun}
-          onCheckedChange={onAutoRunChange}
-          className={`data-[state=checked]:bg-${colorPalettes[colorPalette][theme].accent}-600`}
-        />
-        <Timer className="w-4 h-4 opacity-70" />
-        <Input
-          type="number"
-          value={interval}
-          onChange={onIntervalChange}
-          className={`w-20 h-6 border-0 ${
-            theme === "dark" ? "bg-black/30" : "bg-white/30"
-          }`}
-          min={100}
-        />
-        <span className="opacity-70 text-sm">ms</span>
-      </div>
-      <Button
-        onClick={onExecute}
-        disabled={isExecuting}
-        size="sm"
-        className={`bg-${colorPalettes[colorPalette][theme].accent}-600 hover:bg-${colorPalettes[colorPalette][theme].accent}-700`}
-      >
-        <Play className="w-4 h-4" />
-      </Button>
-    </div>
-  </div>
-);
-
-interface ConsoleProps {
-  theme: string;
-  output: Array<{
-    type: string;
-    content: string;
-    timestamp: string;
-  }>;
-  onClear: () => void;
-  isFullscreen: boolean;
-  onToggleFullscreen: () => void;
-  outputRef: React.RefObject<HTMLDivElement>;
-  colorPalette: string;
-}
-
-// Console Component
-const Console: React.FC<ConsoleProps> = ({
-  theme,
-  output,
-  onClear,
-  isFullscreen,
-  onToggleFullscreen,
-  outputRef,
-  colorPalette,
-}) => (
-  <div
-    className={`h-screen max-h-screen overflow-hidden flex flex-col md:border-l border-gray-400   ${
-      isFullscreen ? "hidden" : ""
-    }`}
-  >
-    <div
-      className={`flex items-center justify-between p-2  ${
-        theme === "dark" ? "bg-black/50" : "bg-white/50"
-      }`}
-    >
-      <div className="flex items-center gap-2 ">
-        <Terminal
-          className={`w-5 h-5 text-${colorPalettes[colorPalette][theme].accent}-400`}
-        />
-        <span className="font-semibold">Console</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          onClick={onToggleFullscreen}
-          size="sm"
-          variant="ghost"
-          className="opacity-70 hover:opacity-100"
-        >
-          {isFullscreen ? (
-            <Minimize2 className="w-4 h-4" />
-          ) : (
-            <Maximize2 className="w-4 h-4" />
-          )}
-        </Button>
-        <Button
-          onClick={onClear}
-          size="sm"
-          variant="ghost"
-          className="opacity-70 hover:opacity-100"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-    <ConsoleOutput
-      theme={theme}
-      output={output}
-      outputRef={outputRef}
-      colorPalette={colorPalette}
-    />
-  </div>
-);
-
-interface ConsoleOutputProps {
-  theme: string;
-  output: Array<{
-    type: string;
-    content: string;
-    timestamp: string;
-  }>;
-  outputRef: React.RefObject<HTMLDivElement>;
-  colorPalette: string;
-}
-
-// Console Output Component
-const ConsoleOutput: React.FC<ConsoleOutputProps> = ({
-  theme,
-  output,
-  outputRef,
-  colorPalette,
-}) => (
-  <ScrollArea
-    className={`flex-1 ${theme === "dark" ? "bg-black/30" : "bg-white/30"}`}
-  >
-    <div className="p-2 font-mono space-y-1" ref={outputRef}>
-      {output.length === 0 ? (
-        <div className="opacity-30 text-sm">
-          Console output will appear here...
-        </div>
-      ) : (
-        output.map((item, index) => (
-          <div
-            key={index}
-            className={`px-2 py-1 rounded flex items-start gap-2 ${
-              item.type === "error"
-                ? "bg-red-500/10 text-red-400 border-l-2 border-red-500"
-                : item.type === "result"
-                ? `bg-${colorPalettes[colorPalette][theme].accent}-500/10 text-${colorPalettes[colorPalette][theme].accent}-400 border-l-2 border-${colorPalettes[colorPalette][theme].accent}-500`
-                : `${
-                    theme === "dark" ? "text-white/90" : "text-black/90"
-                  } border-l-2 border-${
-                    colorPalettes[colorPalette][theme].accent
-                  }-300/20`
-            }`}
-          >
-            <span className="opacity-50 shrink-0">
-              {item.type === "log" && "›"}
-              {item.type === "error" && "⨯"}
-              {item.type === "result" && "←"}
-            </span>
-            <span className="flex-1">{item.content}</span>
-            <span className="opacity-30 text-xs shrink-0">
-              {item.timestamp}
-            </span>
-          </div>
-        ))
-      )}
-    </div>
-  </ScrollArea>
-);
-
-interface ColorPalettePickerProps {
-  currentPalette: string;
-  onPaletteChange: (palette: string) => void;
-}
-
-// Color Palette Picker Component
-const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({
-  currentPalette,
-  onPaletteChange,
-}) => (
-  <div className="absolute bottom-2 right-24 flex flex-col gap-2 bg-black/20 p-2 rounded">
-    <Button size="sm" variant="ghost" className="flex items-center gap-2">
-      <Palette className="w-4 h-4" />
-      <span>Theme</span>
-    </Button>
-    <div className="flex flex-col gap-1">
-      {Object.entries(colorPalettes).map(([key, palette]) => (
-        <Button
-          key={key}
-          size="sm"
-          variant={currentPalette === key ? "secondary" : "ghost"}
-          onClick={() => onPaletteChange(key)}
-          className="justify-start"
-        >
-          {(palette as { name: string }).name}
-        </Button>
-      ))}
-    </div>
-  </div>
-);
+monaco.languages.typescript.typescriptDefaults.setEagerModelSync(true);
 
 function App() {
   const [code, setCode] = useState(
@@ -381,10 +50,13 @@ function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [fontSize, setFontSize] = useState(14);
-  const [colorPalette, setColorPalette] = useState("default");
+  const [
+    colorPalette,
+    //  setColorPalette
+  ] = useState("default");
   const outputRef = useRef<HTMLDivElement>(null);
   const autoRunRef = useRef<NodeJS.Timeout | null>(null);
-  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef: any = useRef(null);
 
   useEffect(() => {
     if (outputRef.current) {
@@ -412,7 +84,13 @@ function App() {
           .join(" "),
         timestamp: new Date().toLocaleTimeString(),
       });
-      setOutput((prev) => [...prev, ...logs]);
+      setOutput((prev) => ({ ...prev, ...logs }));
+      if (window.innerWidth < 1000) {
+        scrollTo({
+          behavior: "smooth",
+          top: 800,
+        });
+      }
     };
 
     try {
@@ -442,6 +120,9 @@ function App() {
     }
   }, [code]);
 
+  useEffect(() => {
+    console.log("output", output);
+  }, [output]);
   useEffect(() => {
     if (autoRun) {
       autoRunRef.current = setInterval(executeCode, interval);
@@ -475,6 +156,14 @@ function App() {
     setIsFullscreen(!isFullscreen);
   };
 
+  const formatCode = () => {
+    const formattedCode = code
+      .split("\n")
+      .map((line) => line.trim())
+      .join("\n");
+    setCode(formattedCode);
+  };
+
   return (
     <div
       className={`min-h-screen transition-colors duration-200  ${
@@ -488,11 +177,11 @@ function App() {
           isFullscreen ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"
         }`}
       >
-        <div className="h-full flex flex-col">
+        <div className="h-screen lg:h-full flex flex-col">
           <Header
             theme={theme}
             colorPalette={colorPalette}
-            onThemeChange={() => setTheme(theme === "dark" ? "light" : "dark")}
+            onThemeChange={() => setTheme(theme === "light" ? "dark" : "light")}
             onCopy={copyCode}
             onDownload={downloadCode}
             autoRun={autoRun}
@@ -502,21 +191,63 @@ function App() {
             onExecute={executeCode}
             isExecuting={isExecuting}
           />
-          <div className="relative flex-1">
-            <Textarea
-              ref={editorRef}
+          <div className="relative flex-1 ">
+            <MonacoEditor
+              width={"100%"}
+              height={"100%"}
+              language="javascript" // Use JavaScript language for JS features
+              // theme={theme === "dark" ? "vs-dark" : "vs"} // Switch between dark and light theme
               value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className={`absolute inset-0 font-mono resize-none  rounded-none h-[calc(94dvh)]
-                ${
-                  theme === "dark"
-                    ? colorPalettes[colorPalette][theme].editor
-                    : colorPalettes[colorPalette][theme].editor
-                }
-              `}
-              style={{ fontSize: `${fontSize}px` }}
-              placeholder="Write your JavaScript code here..."
+              theme={theme == "dark" ? "vs-dark" : "vs"}
+              // theme={"vs-dark"}
+              options={{
+                selectOnLineNumbers: true,
+                roundedSelection: true,
+                readOnly: false,
+                cursorBlinking: "smooth",
+                automaticLayout: true,
+                fontLigatures: true,
+                fontFamily: "monospace",
+                fontSize: fontSize,
+
+                // formatOnPaste: true,
+                // formatOnType: true,
+                // model: monaco.editor.createModel("", "javascript"),
+                // hover: {
+                //   enabled: true,
+                // },
+                // minimap: {
+                //   enabled: false,
+                // },
+                // "semanticHighlighting.enabled": true, // Enable semantic highlighting
+                // bracketPairColorization: {
+                //   independentColorPoolPerBracketType: true,
+                //   enabled: true,
+                // },
+                // autoClosingBrackets: "always",
+                // suggest: {
+                //   filterGraceful: true,
+                //   showFunctions: true,
+                //   showVariables: true,
+                //   showMethods: true,
+                //   // showTypes: true,
+                //   showClasses: true,
+                //   showEnums: true,
+                //   showInterfaces: true,
+                // },
+                // quickSuggestions: {
+                //   other: true,
+                //   comments: true,
+                //   strings: true,
+                // },
+              }}
+              onChange={(newValue) => setCode(newValue)}
+              editorDidMount={(editor) => {
+                editorRef.current = editor;
+                // Additional Monaco settings if needed
+              }}
             />
+
             <div className="absolute bottom-2 right-2 flex gap-1">
               <Button
                 size="sm"
@@ -532,11 +263,14 @@ function App() {
               >
                 A+
               </Button>
+              <Button size="sm" variant="ghost" onClick={formatCode}>
+                Format
+              </Button>
             </div>
-            <ColorPalettePicker
+            {/* <ColorPalettePicker
               currentPalette={colorPalette}
               onPaletteChange={setColorPalette}
-            />
+            /> */}
           </div>
         </div>
 
